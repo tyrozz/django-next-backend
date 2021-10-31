@@ -1,3 +1,4 @@
+from allauth.account import app_settings as allauth_settings
 from allauth.account.forms import default_token_generator
 from allauth.account.utils import url_str_to_user_pk as uid_decoder
 from django.conf import settings
@@ -152,3 +153,11 @@ class PasswordChangeSerializer(serializers.Serializer):
 
     def save(self):
         self.set_password_form.save()
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    key = serializers.CharField()
+
+
+class ResendEmailVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=allauth_settings.EMAIL_REQUIRED)

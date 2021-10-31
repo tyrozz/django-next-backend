@@ -1,10 +1,13 @@
+from allauth.account.models import EmailAddress
+from allauth.account.views import ConfirmEmailView
 from django.contrib.auth import get_user_model
 from django.utils.decorators import method_decorator
 from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.debug import sensitive_post_parameters
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.generics import GenericAPIView
+from rest_framework.exceptions import MethodNotAllowed, ValidationError
+from rest_framework.generics import CreateAPIView, GenericAPIView
 from rest_framework.mixins import (
     CreateModelMixin,
     ListModelMixin,
@@ -13,14 +16,17 @@ from rest_framework.mixins import (
 )
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework.viewsets import GenericViewSet
 
 from .serializers import (
     CreateUserSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
+    ResendEmailVerificationSerializer,
     UserPasswordResetSerializer,
     UserSerializer,
+    VerifyEmailSerializer,
 )
 
 User = get_user_model()
@@ -103,3 +109,41 @@ class PasswordChangeView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response({"detail": _("New password has been saved")})
+
+
+class VerifyEmailView(APIView, ConfirmEmailView):
+    permission_classes = (AllowAny,)
+    allowed_methods = ("POST", "OPTIONS", "HEAD")
+
+    def get_serializer(self, *args, **kwargs):
+        return VerifyEmailSerializer(*args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        raise MethodNotAllowed("GET")
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.kwargs["key"] = serializer.validated_data["key"]
+        confirmation = self.get_object()
+        confirmation.confirm(self.request)
+        return Response({"detail": _("ok")}, status=status.HTTP_200_OK)
+
+
+class ResendEmailVerificationView(CreateAPIView):
+    permission_classes = (AllowAny,)
+    serializer_class = ResendEmailVerificationSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = EmailAddress.objects.get(**serializer.validated_data)
+        if not email:
+            raise ValidationError("Account does not exist")
+
+        if email.verified:
+            raise ValidationError("Account is already verified")
+
+        email.send_confirmation()
+        return Response({"detail": _("ok")}, status=status.HTTP_200_OK)

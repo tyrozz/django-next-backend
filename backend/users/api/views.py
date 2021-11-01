@@ -1,4 +1,6 @@
+from allauth.account import app_settings as allauth_settings
 from allauth.account.models import EmailAddress
+from allauth.account.utils import complete_signup
 from allauth.account.views import ConfirmEmailView
 from django.contrib.auth import get_user_model
 from django.utils.decorators import method_decorator
@@ -23,6 +25,7 @@ from .serializers import (
     CreateUserSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
+    RegisterSerializer,
     ResendEmailVerificationSerializer,
     UserPasswordResetSerializer,
     UserSerializer,
@@ -147,3 +150,41 @@ class ResendEmailVerificationView(CreateAPIView):
 
         email.send_confirmation()
         return Response({"detail": _("ok")}, status=status.HTTP_200_OK)
+
+
+class RegisterView(CreateAPIView):
+    serializer_class = RegisterSerializer
+    permission_classes = (AllowAny,)
+
+    @sensitive_post_parameters_m
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def get_response_data(self, user):
+        if (
+            allauth_settings.EMAIL_VERIFICATION
+            == allauth_settings.EmailVerificationMethod.MANDATORY
+        ):
+            return {"detail": _("Verification e-mail sent.")}
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+
+        return Response(
+            self.get_response_data(user),
+            status=status.HTTP_201_CREATED,
+            headers=headers,
+        )
+
+    def perform_create(self, serializer):
+        user = serializer.save(self.request)
+        complete_signup(
+            self.request._request,
+            user,
+            allauth_settings.EMAIL_VERIFICATION,
+            None,
+        )
+        return user

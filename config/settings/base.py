@@ -289,11 +289,14 @@ ACCOUNT_AUTHENTICATION_METHOD = "username"
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 ACCOUNT_EMAIL_REQUIRED = True
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION = "none"
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 ACCOUNT_ADAPTER = "backend.users.adapters.AccountAdapter"
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 SOCIALACCOUNT_ADAPTER = "backend.users.adapters.SocialAccountAdapter"
+ACCOUNT_USERNAME_MIN_LENGTH = 8
+ACCOUNT_USERNAME_REQUIRED = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
+
 
 # django-rest-framework
 # -------------------------------------------------------------------------------
